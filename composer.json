@@ -1,6 +1,6 @@
 {
-    "name": "qmrp/yii2-weixin",
-    "description": "wechat official account tool",
+    "name": "qmrp/weiaccount",
+    "description": "wechat official account tool based on yii2 framework",
     "type": "library",
     "license": "MIT",
     "authors": [
