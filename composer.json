@@ -1,0 +1,21 @@
+{
+    "name": "qmrp/yii2-callnum",
+    "description": "wechat callnum",
+    "type": "library",
+    "license": "BSD 3-Clause",
+    "authors": [
+        {
+            "name": "zhouzhigang",
+            "email": "zhouzhigangqmrp@163.com"
+        }
+    ],
+    "require": {
+        "yiisoft/yii2": "*",
+        "guzzlehttp/guzzle": "^6.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "qmrp\\weiaccount\\": "src/"
+        }
+    }
+}
