@@ -1,8 +1,8 @@
 {
-    "name": "qmrp/yii2-callnum",
-    "description": "wechat callnum",
+    "name": "qmrp/yii2-weixin",
+    "description": "wechat official account tool",
     "type": "library",
-    "license": "BSD 3-Clause",
+    "license": "MIT",
     "authors": [
         {
             "name": "zhouzhigang",
