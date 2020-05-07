@@ -13,6 +13,7 @@
         "yiisoft/yii2": "*",
         "guzzlehttp/guzzle": "^6.5"
     },
+    "minimum-stability": "dev",
     "autoload": {
         "psr-4": {
             "qmrp\\weiaccount\\": ""
