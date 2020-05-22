@@ -7,6 +7,7 @@ use qmrp\weiaccount\library\AccessToken;
 use qmrp\weiaccount\library\WXBizMsgCrypt;
 use qmrp\weiaccount\replay\AutoReplayConfig;
 use qmrp\weiaccount\library\AutoReplay;
+use GuzzleHttp\Client;
 
 class Weixin extends Component
 {
@@ -15,6 +16,10 @@ class Weixin extends Component
     public $secret = "";
 
     public $token = "";
+
+    public $redis;
+
+    public $hashTable = 'qmrp_weixin_temp_list';
 
     /*
      * 微信信息模式
@@ -102,6 +107,21 @@ class Weixin extends Component
 
     private $template;
 
+    private $httpClient;
+
+    private $url = "https://api.weixin.qq.com/";
+
+    private $urlMap = [
+        'getTemp' => 'cgi-bin/template/get_all_private_template',
+        'delTemp' => 'cgi-bin/template/del_private_template',
+        'sendTemp' => 'cgi-bin/message/template/send',
+        'getMenu' => 'cgi-bin/get_current_selfmenu_info',
+        'createMenu' => 'cgi-bin/menu/create',
+        'delMenu' => 'cgi-bin/menu/delete',
+        'userSummary' => 'datacube/getusersummary',
+        'userCumulate' => 'datacube/getusercumulate'
+    ];
+
     public function init()
     {
         if(null === $this->accessToken){
@@ -110,6 +130,7 @@ class Weixin extends Component
 
         $this->access_token = $this->accessToken->getAccessToken();
         $this->template = new Template($this->token,$this->encodingAesKey,$this->appId,$this->msgMode);
+        $this->httpClient = new Client(['base_uri'=>$this->url,'timeout'=>2.0]);
     }
 
     public function getAccessToken()
@@ -233,9 +254,74 @@ class Weixin extends Component
             $this->template->setClient($this->customId,$this->ownerId);
             $response = $this->template->$funName($res);
         }else{
+            $this->template->setClient($this->customId,$this->ownerId);
             $response = $this->template->transfer();
         }
         return $response;
+    }
+
+    /*
+     * 获取公众号菜单
+     */
+    public function getMenu()
+    {
+        $res = $this->httpClient->request('GET',$this->url.$this->urlMap['getMenu'],['query'=>['access_token'=>$this->access_token['access_token']]]);
+        $httpdCode = $res->getStatusCode();
+        if($httpdCode!=200)
+            return false;
+        $res = $res->getBody()->getContents();
+        $res = @json_decode($res,true);
+        if(is_array($res))
+            return $res;
+        return false;
+    }
+    /*
+     * 删除菜单
+     * {"errcode":0,"errmsg":"ok"}
+     */
+    public function delMenu()
+    {
+        $res = $this->httpClient->request('GET',$this->url.$this->urlMap['delMenu'],['query'=>['access_token'=>$this->access_token['access_token']]]);
+        $httpdCode = $res->getStatusCode();
+        if($httpdCode!=200)
+            return false;
+        $res = $res->getBody()->getContents();
+        $res = @json_decode($res,true);
+        if(is_array($res)&&$res['errcode']==0)
+            return true;
+        return false;
+    }
+
+    /**
+     * 创建菜单
+     */
+    public function createMenu($menu)
+    {
+        if(is_array($menu)) {
+            $menu = json_encode($menu);
+        }
+
+        $res = $this->httpClient->request('POST',$this->url.$this->urlMap['createMenu']."?access_token=".$this->access_token['access_token'],['body'=>$menu]);
+        $httpdCode = $res->getStatusCode();
+        if($httpdCode!=200)
+            return false;
+        $res = $res->getBody()->getContents();
+        $res = @json_decode($res,true);
+        if(is_array($res)&&$res['errcode']==0)
+            return true;
+        return $res;
+
+    }
+
+    public function setIn()
+    {
+        if($rm['errcode']==0){
+            $list = $rm['template_list'];
+            $redis
+            foreach ($list as $item) {
+
+            }
+        }
     }
 
     private function getRandomStr()
