@@ -8,23 +8,13 @@
 
 namespace qmrp\weiaccount\qrcode;
 
-use GuzzleHttp\Client;
+use qmrp\weiaccount\library\BaseTool;
 
-
-class QrcodeTool
+class QrcodeTool extends BaseTool
 {
-    const URL = 'https://api.weixin.qq.com';
-
-    public $client;
-
-    public $access_token;
-
-    public function __construct($access_token)
-    {
-        $this->access_token = $access_token;
-        $this->client = new Client(['base_uri'=>self::URL,'timeout'=>2.0]);
-    }
-
+    public $actMap = [
+        'createQr' => '/cgi-bin/qrcode/create'
+    ];
     /*
      * @params $scene string 二维码参数整数型1--100000，字符型1到64
      * @params $expire string 有效时长，为0时为永久,最大值为2592000
@@ -58,15 +48,8 @@ class QrcodeTool
                 $expire = 2592000;
             $data['expire_seconds'] = $expire;
         }
-        $res = $this->client->request('POST',self::URL."/cgi-bin/qrcode/create?access_token=".$this->access_token,['body'=>json_encode($data)]);
-        $httpCode = $res->getStatusCode();
-        if(200!=$httpCode)
-            return ['errcode'=>1,'errmsg'=>'http request error httpd_code:'.$httpCode];
-        $res = $res->getBody()->getContents();
-        $res = @json_decode($res,true);
-        if(is_array($res))
-            return $res;
-        return ['errcode'=>1,'errmsg'=>'http request error'];
+        $res = $this->postRequest('createQr',$data);
+        return $res;
     }
 
     /*

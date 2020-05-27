@@ -10,19 +10,15 @@ namespace qmrp\weiaccount;
 
 use GuzzleHttp\Client;
 
+use qmrp\weiaccount\library\BaseTool;
+
 /**
  * Class TempMsg 模版信息
  *
  * @package qmrp\weiaccount
  */
-class TempMsg
+class TempMsg extends BaseTool
 {
-    const URL = 'https://api.weixin.qq.com';
-
-    public $client;
-
-    public $access_token;
-
     public $actMap = [
         'set_industry'  => '/cgi-bin/template/api_set_industry',
         'get_industry'  => '/cgi-bin/template/get_industry',
@@ -31,41 +27,6 @@ class TempMsg
         'del_template'  => '/cgi-bin/template/del_private_template',
         'send_msg'      => '/cgi-bin/message/template/send'
     ];
-
-    public function __construct($access_token)
-    {
-        $this->access_token = $access_token;
-        $this->hashTable = $hashTable;
-        $this->client = new Client(['base_uri'=>self::URL,'timeout'=>2.0]);
-    }
-
-    private function getRequest($act,$params=[]):array
-    {
-        $url = self::URL.$this->actMap[$act];
-        $res = $this->client->request('GET',$url,array_merge(['access_token'=>$this->access_token],$params));
-        $httpCode = $res->getStatusCode();
-        if(200!=$httpCode)
-            return ['errcode'=>1,'errmsg'=>'http request error httpd_code:'.$httpCode];
-        $body = $res->getBody()->getContents();
-        $res = @json_decode($res,true);
-        if(is_array($res))
-            return $res;
-        return ['errcode'=>1,'errmsg'=>'http request error'];
-    }
-
-    private function postRequest($act,$params=[]):array
-    {
-        $url = self::URL.$this->actMap[$act]."?access_token=".$this->access_token;
-        $res = $this->client->request('POST',$url,['body'=>json_encode($params)]);
-        $httpCode = $res->getStatusCode();
-        if(200!=$httpCode)
-            return ['errcode'=>1,'errmsg'=>'http request error httpd_code:'.$httpCode];
-        $body = $res->getBody()->getContents();
-        $res = @json_decode($res,true);
-        if(is_array($res))
-            return $res;
-        return ['errcode'=>1,'errmsg'=>'http request error'];
-    }
 
     /**
      * 设置公众号所属行业

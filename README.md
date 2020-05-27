@@ -26,14 +26,16 @@ use qmrp\weiaccount\Weixin;
 header('content-type:aplication/xml;charset=utf8');
 //自动回复参数格式
 $replay = [
-    'textReplay'=>[
-        ["keyword"=>"你好","replayType"=>"text","content"=>"您好！"],
-        ["keyword"=>"我的天","replayType"=>"image","mediaId"=>"0yOLS1Oba0kidD0QR92NZOEkc-2511wAbsEIFHX-6oCLtavb_qUH48rgKKQy098x"]
-    ],
-    "eventReplay"=>[
-        ["eventType"=>"subscribe","replayType"=>"voice","mediaId"=>"sjJTkQ63M74zCoUJ4-Vg3IsduwG8JF21bzCzYNOVu7wjpaOjEIFtMY9BnqLABNtX","eventKey"=>["eventKey"=>"zhou","replayType"=>"text","content"=>"这里是特殊eventKey值的返回"]]
-    ]
-];
+                'textReplay'=>[
+                    ["keyword"=>"你好","replayType"=>"text","content"=>"您好！"],
+                    ["keyword"=>"我的天","replayType"=>"image","mediaId"=>"M3SVG9PH07TjgXPT3GxK2O7nuVQwDpiZH_2sl9-nfct0R2Te4Uw1EuYSVly-i7Sz"],
+                    ["keyword"=>'模板',"replayType"=>"template","tempId"=>"CV1vGj_tseSAAcoXiKMvyML9TnrwLY5LEiUmqvtP3Rk","params"=>['first'=>['value'=>'哈'],'orderID'=>['value'=>'123'],'orderMoneySum'=>['value'=>'12.5'],'backupFieldName'=>['value'=>'可以'],'backupFieldData'=>['value'=>'好'],'remark'=>['value'=>'备注']]],
+                ],
+                "eventReplay"=>[
+                    ["eventType"=>"subscribe","replayType"=>"voice","mediaId"=>"sjJTkQ63M74zCoUJ4-Vg3IsduwG8JF21bzCzYNOVu7wjpaOjEIFtMY9BnqLABNtX","eventKey"=>[["eventKey"=>"zhou","replayType"=>"text","content"=>"这里是特殊eventKey值的返回"]]],
+                    ["eventType"=>"CLICK","eventKey"=>[["eventKey"=>"zhou","replayType"=>"text","content"=>"这里是特殊eventKey值的返回"]]]
+                ]
+            ];
 
 
 

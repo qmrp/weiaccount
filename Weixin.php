@@ -8,6 +8,7 @@ use qmrp\weiaccount\library\WXBizMsgCrypt;
 use qmrp\weiaccount\replay\AutoReplayConfig;
 use qmrp\weiaccount\library\AutoReplay;
 use GuzzleHttp\Client;
+use qmrp\weiaccount\exception\ResponseException;
 
 class Weixin extends Component
 {
@@ -20,6 +21,8 @@ class Weixin extends Component
     public $redis;
 
     public $hashTable = 'qmrp_weixin_temp_list';
+
+    public $prefix = "qmrp";
 
     /*
      * 微信信息模式
@@ -122,6 +125,11 @@ class Weixin extends Component
         'userCumulate' => 'datacube/getusercumulate'
     ];
 
+    private $errors = [];
+
+    /**
+     * init
+     */
     public function init()
     {
         if(null === $this->accessToken){
@@ -133,17 +141,32 @@ class Weixin extends Component
         $this->httpClient = new Client(['base_uri'=>$this->url,'timeout'=>2.0]);
     }
 
+    /**
+     * 获取accessToken
+     * @return array
+     */
     public function getAccessToken()
     {
         return $this->access_token;
     }
 
+    /**
+     * 设置自动回复规则类
+     * @param AutoReplayConfig $replay
+     * @return $this
+     */
     public function setAutoReplayConfig(AutoReplayConfig $replay)
     {
         $this->autoReplayConfig = $replay;
         return $this;
     }
 
+    /**
+     * 设置接收信息
+     * @param $xml
+     * @return $this
+     * @throws \Exception
+     */
     public function setRequestMsg($xml)
     {
         if($this->msgMode==3){
@@ -215,11 +238,84 @@ class Weixin extends Component
         return $this->$name;
     }
 
+    /**
+     * 获取接收信息数据
+     * @return array $req
+     */
     public function getRequest()
     {
         return $this->req;
     }
 
+    /**
+     * 进入持续交互模式
+     * @param array $callback ['app\common\common','excute']
+     * @param string $content
+     * @param int $expire
+     * @return mixed
+     * @throws ResponseException
+     */
+    public function setActive(string $content,array $callback,int $step = 0,int $expire=60)
+    {
+        if($this->redis instanceof yii\redis\Connection){
+            $key = $this->prefix.":".$this->customId;
+            $this->redis->set($key,$content."|".json_encode($callback)."|".$step);
+            return $this->redis->expire($key,$expire);
+        }
+        throw new ResponseException(101,'使用持续交互模式必须设置redis');
+    }
+
+    /**
+     * 获取当前用户交互信息
+     * @return mixed
+     * @throws ResponseException
+     */
+    public function getActive()
+    {
+        if($this->redis instanceof yii\redis\Connection){
+            $key = $this->prefix.":".$this->customId;
+            $res =  $this->redis->get($key);
+            $rm = [];
+            if($res!=""){
+                $res = explode("|",$res);
+                $rm['content'] = $res[0];
+                $rm['callback'] = json_decode($res[1],true);
+                $rm['step'] = $res[2];
+            }
+            return $rm;
+        }
+        throw new ResponseException(101,'使用持续交互模式必须设置redis');
+    }
+
+    /**
+     * @return mixed
+     * @throws ResponseException
+     */
+    public function addStep()
+    {
+        $res = $this->getActive();
+        $res['step'] += 1;
+        return $this->setActive($res['content'],$res['callback'],$res['step']);
+    }
+
+    /**
+     * 退出持续交互
+     * @return mixed
+     * @throws ResponseException
+     */
+    public function quitAcitve()
+    {
+        if($this->redis instanceof yii\redis\Connection){
+            $key = $this->prefix.":".$this->customId;
+            return $this->redis->del($key);
+        }
+        throw new ResponseException(101,'使用持续交互模式必须设置redis');
+    }
+
+    /**
+     * 自动回复返回信息
+     * @return string
+     */
     public function Response()
     {
         if(null==$this->autoReplayConfig){
@@ -248,14 +344,30 @@ class Weixin extends Component
                 $res = $this->autoReplayConfig->hitEventReplay($this->eventType,$this->eventKey);
                 break;
         }
+        \Yii::info($res,'info');
+        try {
 
-        if($res&&isset($res['replayType'])){
-            $funName = strval($res['replayType']);
-            $this->template->setClient($this->customId,$this->ownerId);
-            $response = $this->template->$funName($res);
-        }else{
-            $this->template->setClient($this->customId,$this->ownerId);
-            $response = $this->template->transfer();
+            if ($res && isset($res['replayType'])) {
+                $funName = strval($res['replayType']);
+                if ($funName == 'callback' && isset($res['function'])) {
+                    $funName = $res['function'];
+                    $res = call_user_func_array([$funName[0], $funName[1]], [$this]);
+                    $funName = strval($res['replayType']);
+                }
+                if ($funName == 'template') {
+                    $this->sendTempMsg($res['tempId'], $this->customId, $res['params']);
+                    $response = '';
+                } else {
+                    $this->template->setClient($this->customId, $this->ownerId);
+                    $response = $this->template->$funName($res);
+                }
+
+            } else {
+                $this->template->setClient($this->customId, $this->ownerId);
+                $response = $this->template->transfer();
+            }
+        }catch (ResponseException $e){
+            
         }
         return $response;
     }
@@ -313,14 +425,76 @@ class Weixin extends Component
 
     }
 
-    public function setIn()
+    /**
+     * 获取模版信息列表
+     * @return array
+     */
+    public function getTempList()
     {
-        if($rm['errcode']==0){
-            $list = $rm['template_list'];
-            $redis
-            foreach ($list as $item) {
-
+        $temp = new TempMsg($this->access_token['access_token']);
+        $rm = $temp->getTempList();
+        if($this->redis instanceof yii\redis\Connection) {
+            if ($rm['errcode'] == 0) {
+                $list = $rm['template_list'];
+                foreach ($list as $item) {
+                    $this->redis->hset($this->hashTable,$item['template_id'],json_encode($item));
+                }
             }
+        }
+        return $rm;
+    }
+
+    /**
+     * 发送模版信息
+     * @param string $tempId 模版信息Id
+     * @param string $openId 接收人
+     * @param string $url 模版信息跳转链接优先级低于小程序
+     * @param array $miniparam 模彼信息跳转小程序
+     * @param array $params 模版信息参数必须与模版对的参数对应
+     * @return array
+     */
+    public function sendTempMsg(string $tempId,string $openId,array $params=[],string $url="",array $miniparam=[])
+    {
+        if(!$this->checkTempParam($tempId,$params)){
+            $temp = new TempMsg($this->access_token['access_token']);
+            $rm = $temp->sendMsg($tempId,$openId,$url,$miniparam,$params);
+            return $rm;
+        }
+        return ['errcode'=>1,'msg'=>'参数错误','data'=>$this->errors];
+    }
+
+    private function checkTempParam($tempId,$params){
+        if($this->redis instanceof yii\redis\Connection) {
+            $tempInfo = $this->redis->hget($this->hashTable,$tempId);
+            if($tempId!=""){
+                $tempInfo = json_decode($tempInfo,true);
+            }else{
+                $tempList = $this->getTempList();
+                if($tempList['errcode'])
+                    return false;
+                foreach ($tempList['template_list'] as $item){
+                    if($item['template_id']==$tempId) {
+                        $tempInfo = $item;
+                        break;
+                    }
+                }
+            }
+            if(empty($tempInfo))
+                return false;
+            $content = $tempInfo['content'];
+            $arr = explode("{{", $content);
+            unset($arr[0]);
+            $keys = [];
+            foreach ($arr as $value) {
+                $keys[] = explode(".DATA}}", $value)[0];
+            }
+            $pkeys = array_keys($params);
+            $difArr = array_diff($keys,$pkeys);
+            if(!empty($difArr)) {
+                $this->errors = $difArr;
+                return false;
+            }
+            return true;
         }
     }
 

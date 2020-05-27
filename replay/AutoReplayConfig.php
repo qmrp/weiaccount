@@ -52,10 +52,12 @@ class AutoReplayConfig
             return false;
         $eventReplay = array_column($this->eventReplay,null,'eventType');
         if(isset($eventReplay[$event])){
+            $eventReplay = $eventReplay[$event];
             if(empty($eventKey)) {
-                return $eventReplay[$event];
+                return $eventReplay;
             }else{
-                $eventKeyReplay = array_column($eventReplay[$event]['eventKey'],null,'eventKey');
+                $eventKeyReplay = $eventReplay['eventKey'];
+                $eventKeyReplay = array_column($eventKeyReplay,null,'eventKey');
                 if(isset($eventKeyReplay[$eventKey]))
                     return $eventKeyReplay[$eventKey];
             }
