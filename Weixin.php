@@ -1,6 +1,8 @@
 <?php
 namespace qmrp\weiaccount;
 
+use qmrp\weiaccount\replay\ActiveReplayConfig;
+use qmrp\weiaccount\replay\Validate;
 use yii\base\Component;
 use qmrp\weiaccount\replay\Template;
 use qmrp\weiaccount\library\AccessToken;
@@ -23,6 +25,16 @@ class Weixin extends Component
     public $hashTable = 'qmrp_weixin_temp_list';
 
     public $prefix = "qmrp";
+
+    /**
+     * @var bool 上下文连续对话
+     */
+    public $context = false;
+
+    /**
+     * @var int 上下文有效期
+     */
+    public $epxire = 600;
 
     /*
      * 微信信息模式
@@ -67,8 +79,15 @@ class Weixin extends Component
 
     /*
      * 自动回复规则类
+     * @var AutoReplayConfig
      */
     private $autoReplayConfig;
+
+    /**
+     * 上下文回复规则类
+     * @var ActiveReplayConfig
+     */
+    private $activeReplayConfig;
 
     private $createTime;
 
@@ -139,6 +158,12 @@ class Weixin extends Component
         $this->access_token = $this->accessToken->getAccessToken();
         $this->template = new Template($this->token,$this->encodingAesKey,$this->appId,$this->msgMode);
         $this->httpClient = new Client(['base_uri'=>$this->url,'timeout'=>2.0]);
+        if($this->content) {
+            if (!$this->redis instanceof yii\redis\Connection)
+                throw new ResponseException(101, '使用持续交互模式必须设置redis');
+        }
+        $this->redis = new $this->redis['class'];
+        $this->redis
     }
 
     /**
@@ -159,6 +184,11 @@ class Weixin extends Component
     {
         $this->autoReplayConfig = $replay;
         return $this;
+    }
+
+    public function setActiveReplayConfig(ActiveReplayConfig $replay)
+    {
+        $this->activeReplayConfig = $replay;
     }
 
     /**
@@ -230,6 +260,7 @@ class Weixin extends Component
         }
         $this->customId = $this->req['FromUserName'];
         $this->ownerId = $this->req['ToUserName'];
+        $this->template->setClient($this->customId, $this->ownerId);
         return $this;
     }
 
@@ -250,19 +281,22 @@ class Weixin extends Component
     /**
      * 进入持续交互模式
      * @param array $callback ['app\common\common','excute']
-     * @param string $content
-     * @param int $expire
+     * @param string $activeName
      * @return mixed
      * @throws ResponseException
      */
-    public function setActive(string $content,array $callback,int $step = 0,int $expire=60)
+    public function setActive(string $activeName,int $step = 0)
     {
-        if($this->redis instanceof yii\redis\Connection){
-            $key = $this->prefix.":".$this->customId;
-            $this->redis->set($key,$content."|".json_encode($callback)."|".$step);
-            return $this->redis->expire($key,$expire);
+        if($this->context&&$this->activeReplayConfig){
+            if($this->activeReplayConfig->isSetReplay($activeName)) {
+                $key = $this->prefix . ":" . $this->customId;
+                $this->redis->set($key, $activeName . "|" . $step);
+                return $this->redis->expire($key, $this->expire);
+            }else{
+                throw new ResponseException(102,"context {$activeName} not defined");
+            }
         }
-        throw new ResponseException(101,'使用持续交互模式必须设置redis');
+        throw new ResponseException(101,'context not turned on');
     }
 
     /**
@@ -272,26 +306,25 @@ class Weixin extends Component
      */
     public function getActive()
     {
-        if($this->redis instanceof yii\redis\Connection){
+        if($this->context){
             $key = $this->prefix.":".$this->customId;
             $res =  $this->redis->get($key);
             $rm = [];
             if($res!=""){
                 $res = explode("|",$res);
-                $rm['content'] = $res[0];
-                $rm['callback'] = json_decode($res[1],true);
-                $rm['step'] = $res[2];
+                $rm['activeName'] = $res[0];
+                $rm['step'] = $res[1];
             }
             return $rm;
         }
-        throw new ResponseException(101,'使用持续交互模式必须设置redis');
+        throw new ResponseException(101,'context not turned on');
     }
 
     /**
      * @return mixed
      * @throws ResponseException
      */
-    public function addStep()
+    public function nextStep()
     {
         $res = $this->getActive();
         $res['step'] += 1;
@@ -305,11 +338,40 @@ class Weixin extends Component
      */
     public function quitAcitve()
     {
-        if($this->redis instanceof yii\redis\Connection){
+        if($this->context){
             $key = $this->prefix.":".$this->customId;
             return $this->redis->del($key);
         }
-        throw new ResponseException(101,'使用持续交互模式必须设置redis');
+        throw new ResponseException(101,'context not turned on');
+    }
+
+    /**
+     * @param $activeName
+     * @param $name
+     * @param $val
+     * @param int $expire
+     * @return mixed
+     * @throws ResponseException
+     */
+    public function setActiveContent($activeName,$name,$val)
+    {
+        if($this->context){
+            $key = $this->prefix.":".$this->customId."-".$activeName;
+            $content = $this->redis->get($key);
+            if($content!=""){
+                $content = @json_decode($content);
+                if(is_array($content)){
+                    $content[$name] = $val;
+                }else{
+                    $content = [$name=>$val];
+                }
+            }else{
+                $content = [$name=>$val];
+            }
+            $this->redis->set($key,json_encode($content));
+            return $this->redis->expire($key,$this->expire);
+        }
+        throw new ResponseException(101,'context not turned on');
     }
 
     /**
@@ -320,6 +382,30 @@ class Weixin extends Component
     {
         if(null==$this->autoReplayConfig){
             $this->template->transfer();
+        }
+        if($this->context&&$this->activeReplayConfig){
+            $active = $this->getActive();
+            if(!empty($active)){
+                $activeName = $active['activeName'];
+                $step = $active['step'];
+                $steps = $this->activeReplayConfig->getSteps($activeName);
+                if($step==$steps){
+                    $finish = $this->activeReplayConfig->getFinish($activeName);
+                }
+                $activeReplay = $this->activeReplayConfig->getReplay($activeName,$step);
+                $format = $this->activeReplayConfig->getFormat($activeName,$step);
+                if($format['validate']=='sys'){
+                    if(!Validate::$format['rule']($this)){
+                        $this->template->text(['content'=>$activeReplay['message']]);
+                    }
+                }else{
+                    if(!call_user_func_array($format['rule'],[$this])){
+                        $this->template->text(['content'=>$activeReplay['message']]);
+                    }
+                }
+                $val = call_user_func_array($activeReplay['callback'],[$this]);
+                $this->setActiveContent($activeName,$activeReplay['name'],$val);
+            }
         }
         $res = false;
         switch ($this->msgType){
@@ -358,16 +444,14 @@ class Weixin extends Component
                     $this->sendTempMsg($res['tempId'], $this->customId, $res['params']);
                     $response = '';
                 } else {
-                    $this->template->setClient($this->customId, $this->ownerId);
                     $response = $this->template->$funName($res);
                 }
 
             } else {
-                $this->template->setClient($this->customId, $this->ownerId);
                 $response = $this->template->transfer();
             }
         }catch (ResponseException $e){
-            
+            $response = $this->template->text(['content'=>$e->getMessage().$e->getFile().$e->getLine()]);
         }
         return $response;
     }
