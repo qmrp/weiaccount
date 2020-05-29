@@ -60,7 +60,7 @@ class BaseTool
         return ['errcode'=>1,'errmsg'=>'http request error'];
     }
 
-    public function getResources($act,$params=[])
+    public function getResources($act,$params=[],$ishtml = true)
     {
         $url = self::URL.$this->actMap[$act];
         $params['access_token'] = $this->access_token;
@@ -69,11 +69,16 @@ class BaseTool
         if(200!=$httpCode)
             return ['errcode'=>1,'errmsg'=>'http request error httpd_code:'.$httpCode];
         $body = $res->getBody()->getContents();
-        $res = @json_decode($body,true);
-        if(is_array($res))
-            return $res;
-        $header = $res->getHeader('Content-Type');
-        header('Content-Type:'.$header[0]);
-        exit($body);
+        $rm = @json_decode($body,true);
+        if($ishtml){
+            if(is_array($rm))
+                exit(json_encode($rm));
+            $header = $res->getHeader('Content-Type');
+            header('Content-Type:'.$header[0]);
+            exit($body);
+        }
+        if(is_array($rm))
+            return $rm;
+        return ['file'=>$body,'header'=>$res->getHeader('Content-Type')];
     }
 }

@@ -28,4 +28,10 @@ interface Callbackfun
      */
     public static function excute(Weixin $weixin):array ;
 
+    /**
+     * 上下文完成调用函数
+     * @return array 函数的返回格式必须按指定格式返回，不同的replayType有不同格式["replayType"=>self::RES_TEXT,"content">"返回"]
+     */
+    public function finish();
+
 }

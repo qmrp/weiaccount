@@ -103,9 +103,9 @@ class MediaTool extends BaseTool
      * @param string $mediaId
      * @return array|resource
      */
-    public function getShortTimeMedia(string $mediaId)
+    public function getShortTimeMedia(string $mediaId,$isHtml=true)
     {
-        return $this->getResources('st_get',['media_id'=>$mediaId]);
+        return $this->getResources('st_get',['media_id'=>$mediaId],$isHtml);
     }
 
     /**

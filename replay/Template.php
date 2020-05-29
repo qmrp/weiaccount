@@ -36,6 +36,49 @@ class Template
         $this->fromUserName = $from;
     }
 
+    public static function checkTempParams($params,$type)
+    {
+        switch ($type){
+            case 'text':
+                if(!isset($params['content'])||""==$params['content'])
+                    return false;
+                break;
+            case 'news':
+                if(!isset($params['title'])|| !isset($params['description'])|| !isset($params['picUrl'])|| !isset($params['url'])){
+                    return false;
+                }
+                if(!$params['title']|| !$params['description']|| !$params['picUrl']|| !$params['url']){
+                    return false;
+                }
+                break;
+            case 'image':
+            case 'voice':
+                if(!isset($params['mediaId'])||empty($params['mediaId']))
+                    return false;
+                break;
+            case 'video':
+                if(!isset($params['mediaId'])||!isset($params['title'])||!isset($params['description'])){
+                    return false;
+                }
+                if(!$params['mediaId']||!$params['title']||!$params['description']){
+                    return false;
+                }
+                break;
+            case 'music':
+                if(!isset($params['title'])||!isset($params['description'])||!isset($params['musicUrl'])||!isset($params['hqMusicUrl'])||!isset($params['thumbMediaId'])){
+                    return false;
+                }
+                if(!$params['title']||!$params['description']||!$params['musicUrl']||!$params['hqMusicUrl']||!$params['thumbMediaId']){
+                    return false;
+                }
+                break;
+            default:
+                return false;
+                break;
+        }
+        return true;
+    }
+
     //文本回复
     public function  text($params){
         $tpl = "<xml>

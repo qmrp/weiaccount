@@ -11,6 +11,7 @@ use qmrp\weiaccount\replay\AutoReplayConfig;
 use qmrp\weiaccount\library\AutoReplay;
 use GuzzleHttp\Client;
 use qmrp\weiaccount\exception\ResponseException;
+use yii\redis\Connection;
 
 class Weixin extends Component
 {
@@ -34,7 +35,7 @@ class Weixin extends Component
     /**
      * @var int 上下文有效期
      */
-    public $epxire = 600;
+    public $expire = 600;
 
     /*
      * 微信信息模式
@@ -151,6 +152,15 @@ class Weixin extends Component
      */
     public function init()
     {
+        if (is_string($this->redis)) {
+            $this->redis = Yii::$app->get($this->redis);
+        } elseif (is_array($this->redis)) {
+            if (!isset($this->redis['class'])) {
+                $this->redis['class'] = Connection::className();
+            }
+            $this->redis = \Yii::createObject($this->redis);
+        }
+
         if(null === $this->accessToken){
             $this->accessToken = new AccessToken($this->appId,$this->secret);
         }
@@ -162,8 +172,8 @@ class Weixin extends Component
             if (!$this->redis instanceof yii\redis\Connection)
                 throw new ResponseException(101, '使用持续交互模式必须设置redis');
         }
-        $this->redis = new $this->redis['class'];
-        $this->redis
+
+        parent::init();
     }
 
     /**
@@ -189,6 +199,7 @@ class Weixin extends Component
     public function setActiveReplayConfig(ActiveReplayConfig $replay)
     {
         $this->activeReplayConfig = $replay;
+        return $this;
     }
 
     /**
@@ -328,7 +339,7 @@ class Weixin extends Component
     {
         $res = $this->getActive();
         $res['step'] += 1;
-        return $this->setActive($res['content'],$res['callback'],$res['step']);
+        return $this->setActive($res['activeName'],$res['step']);
     }
 
     /**
@@ -359,7 +370,7 @@ class Weixin extends Component
             $key = $this->prefix.":".$this->customId."-".$activeName;
             $content = $this->redis->get($key);
             if($content!=""){
-                $content = @json_decode($content);
+                $content = @json_decode($content,true);
                 if(is_array($content)){
                     $content[$name] = $val;
                 }else{
@@ -374,6 +385,22 @@ class Weixin extends Component
         throw new ResponseException(101,'context not turned on');
     }
 
+    public function getActiveContent($activeName)
+    {
+        if($this->context){
+            $key = $this->prefix.":".$this->customId."-".$activeName;
+            $content = $this->redis->get($key);
+            if($content!=""){
+                $content = @json_decode($content,true);
+                if(is_array($content)){
+                    return $content;
+                }
+            }
+            return [];
+        }
+        throw new ResponseException(101,'context not turned on');
+    }
+
     /**
      * 自动回复返回信息
      * @return string
@@ -383,28 +410,48 @@ class Weixin extends Component
         if(null==$this->autoReplayConfig){
             $this->template->transfer();
         }
+        /*
+         * 开启上下文进入
+         */
         if($this->context&&$this->activeReplayConfig){
             $active = $this->getActive();
             if(!empty($active)){
                 $activeName = $active['activeName'];
                 $step = $active['step'];
                 $steps = $this->activeReplayConfig->getSteps($activeName);
-                if($step==$steps){
-                    $finish = $this->activeReplayConfig->getFinish($activeName);
-                }
+
                 $activeReplay = $this->activeReplayConfig->getReplay($activeName,$step);
                 $format = $this->activeReplayConfig->getFormat($activeName,$step);
-                if($format['validate']=='sys'){
-                    if(!Validate::$format['rule']($this)){
-                        $this->template->text(['content'=>$activeReplay['message']]);
+                if($format['validate']=='sys'){     //系统自带校验方法
+                    $vFun = $format['rule'][0];
+                    $format['rule'][0] = $this;
+                    if(!call_user_func_array([Validate::class,$vFun],$format['rule'])){
+                        return $this->template->text(['content'=>$activeReplay['message']]);
                     }
                 }else{
                     if(!call_user_func_array($format['rule'],[$this])){
-                        $this->template->text(['content'=>$activeReplay['message']]);
+                        return $this->template->text(['content'=>$activeReplay['message']]);
                     }
                 }
                 $val = call_user_func_array($activeReplay['callback'],[$this]);
                 $this->setActiveContent($activeName,$activeReplay['name'],$val);
+
+                if(($step+1)==$steps){
+                    $finish = $this->activeReplayConfig->getFinish($activeName);
+                }
+                if(isset($finish)){
+                    $res = call_user_func_array($finish,[$this]);
+                    if(isset($res['replayType'])) {
+                        $funName = $res['replayType'];
+                        return $this->template->$funName($res);
+                    }
+                    return '';
+                }
+                $this->nextStep();
+                $activeReplay = $this->activeReplayConfig->getReplay($activeName,$step+1);
+                $funName = $activeReplay['replay']['replayType'];
+                $response = $this->template->$funName($activeReplay['replay']);
+                return $response;
             }
         }
         $res = false;
@@ -597,7 +644,7 @@ class Weixin extends Component
     private function xmlToArray($xml)
     {
         if(!$xml){
-            throw new \Exception("xml数据异常！");
+            throw new ResponseException(102,"xml数据异常！");
         }
         //将XML转为array
         //禁止引用外部xml实体
