@@ -477,7 +477,7 @@ class Weixin extends Component
                 $res = $this->autoReplayConfig->hitEventReplay($this->eventType,$this->eventKey);
                 break;
         }
-        \Yii::info($res,'info');
+
         try {
 
             if ($res && isset($res['replayType'])) {
