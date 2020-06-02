@@ -59,8 +59,18 @@ class AutoReplayConfig
             if(!isset($replay['keyword'])||!isset($replay['replayType']))
                 throw new ResponseException(101,"AutoReplayConfig missing params");
 
-            if(($replay['replayType']!="callback"&&$replay['replayType']!='template')&&!Template::checkTempParams($replay,$replay['replayType']))
+            if(in_array($replay['replayType'],$this->replayMsgTypeList)&&!Template::checkTempParams($replay,$replay['replayType']))
                 throw new ResponseException(102,"AutoReplayConfig replay {$replay['keyword']} temp prams missing");
+            elseif($replay['replayType']=='callback'){
+                if(!isset($replay['function'])) {
+                    throw new ResponseException(103, 'AutoReplayConfig set callback missing param function');
+                }elseif (!isset($replay['function'][0])||!isset($replay['function'][1])){
+                    throw new ResponseException(104,'AutoReplayConfig callback function missing params');
+                }
+                elseif(!method_exists($replay['function'][0],$replay['function'][1])){
+                    throw new ResponseException(103,"AutoReplayConfig callback function {$replay['function'][1]} not exists");
+                }
+            }
             $config[$replay['keyword']] = $replay;
         }
         $this->msgReplay = $config;
@@ -100,12 +110,6 @@ class AutoReplayConfig
     public function hitContentReplay($keyword)
     {
         return isset($this->msgReplay[$keyword])?$this->msgReplay[$keyword]:false;
-//        if(is_null($this->textReplay))
-//            return false;
-//        $textReplay = array_column($this->textReplay,null,'keyword');
-//        if(isset($textReplay[$keyword]))
-//            return $textReplay[$keyword];
-//        return false;
     }
 
     public function hitEventReplay($event,$eventKey)
@@ -115,20 +119,5 @@ class AutoReplayConfig
         }elseif(!empty($event)){
             return isset($this->eventReplay[$event])?$this->eventReplay[$event]:false;
         }
-//        if(is_null($this->eventReplay))
-//            return false;
-//        $eventReplay = array_column($this->eventReplay,null,'eventType');
-//        if(isset($eventReplay[$event])){
-//            $eventReplay = $eventReplay[$event];
-//            if(empty($eventKey)) {
-//                return $eventReplay;
-//            }else{
-//                $eventKeyReplay = $eventReplay['eventKey'];
-//                $eventKeyReplay = array_column($eventKeyReplay,null,'eventKey');
-//                if(isset($eventKeyReplay[$eventKey]))
-//                    return $eventKeyReplay[$eventKey];
-//            }
-//        }
-//        return false;
     }
 }

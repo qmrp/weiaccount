@@ -19,6 +19,7 @@ interface Callbackfun
     const RES_VIDEO = 'video';
     const RES_MUSIC = 'music';
     const RES_NEWS = 'news';
+    const RES_TEMP = 'template';
 
     /**
      * 自动回复，回调函数，在设置自复中如设置replayType的值为callback时，将调自动调设置的function

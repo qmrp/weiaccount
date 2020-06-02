@@ -15,6 +15,8 @@ use yii\redis\Connection;
 
 class Weixin extends Component
 {
+    public $debug = false;
+
     public $appId = "";
 
     public $secret = "";
@@ -516,7 +518,7 @@ class Weixin extends Component
         $res = @json_decode($res,true);
         if(is_array($res))
             return $res;
-        return false;
+        return [];
     }
     /*
      * 删除菜单
@@ -532,6 +534,8 @@ class Weixin extends Component
         $res = @json_decode($res,true);
         if(is_array($res)&&$res['errcode']==0)
             return true;
+        if($this->debug)
+            return $res;
         return false;
     }
 
@@ -552,8 +556,9 @@ class Weixin extends Component
         $res = @json_decode($res,true);
         if(is_array($res)&&$res['errcode']==0)
             return true;
-        return $res;
-
+        if($this->debug)
+            return $res;
+        return false;
     }
 
     /**

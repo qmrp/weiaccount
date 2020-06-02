@@ -75,6 +75,8 @@ class ActiveConfigObj
             if(!Template::checkTempParams($replay['replay'],$replay['replay']['replayType'])){
                 throw new ResponseException(102,'ActiveConfigObj replay Temp params error');
             }
+            if(!is_array($replay['callback'])||!isset($replay['callback'][0])||!isset($replay['callback'][1]))
+                throw new ResponseException(104,"ActiveConfigObj param callback format error");
             if(!method_exists($replay['callback'][0],$replay['callback'][1])){
                 throw new ResponseException(103,"ActiveConfigObj callback function {$replay['callback'][1]} not exists");
             }
