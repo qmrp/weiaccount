@@ -172,8 +172,8 @@ exit($res);
 |setActiveContent|bool|存储当前交互数据|
 |getActiveContent|array|获取当前交互用户返回并处理后的数据|
 |getMenu|array|获取微信公众号的菜单配置|
-|delMenu|bool|array|删除微信公众号的菜单,开启debug时，未成功返回错误信息|
-|createMenu|bool|array|创建微信公众号菜单|
+|delMenu|bool、array|删除微信公众号的菜单,开启debug时，未成功返回错误信息|
+|createMenu|bool、array|创建微信公众号菜单|
 |getTempList|array|返回当前微信公众号内的模版信息列表|
 |sendTempMsg|array|发送模版信息|
 
@@ -190,3 +190,42 @@ exit($res);
 |---|---|---|
 |addShortTimeMedia|array|增加临时素材|
 |getShortTimeMedia|array|获取临时素材|
+|addForeverMedia|array|增加永久素材|
+|getForeverMedia|array|获取永久素材|
+|addForeverNews|array|新增永久图文素材|
+|upForeverImg|array|上传图文素材中的图片|
+|detForeverMedia|array|删除永久素材|
+|updateNews|array|修改图文信息|
+|getForeverCount|array|获取永久素材统计数据|
+|getForeverList|array|获取永久素材列表|
+
+
+### MemberTool 方法说明
+
+|方法名|返回|说明|
+|---|---|---|
+|addTag|array|创建标签|
+|getTags|array|获取标签列表|
+|updateTag|array|修改标签|
+|delTag|array|删除标签|
+|getUsersByTags|array|根据标签获取用户|
+|setUserTagInBatch|array|批量设置用户标签|
+|cancelUserTagInBatch|array|批量取消用户标签|
+|getUserTagIds|array|获取用户绑定的标签id|
+|setUserAlias|array|设置用户别名|
+|getUserInfo|array|获取用户信息|
+|getUserInfoInBatch|array|批量获取用户信息|
+|getAccountUsers|array|获取公众号粉丝列表|
+|getAccountBlackUsers|array|获取公众号黑名单|
+
+
+### TempMsg 方法说明
+
+|方法名|返回|说明|
+|---|---|---|
+|setIndustry|array|设置公众号所属行业|
+|getIndeustry|array|获取设置的行业信息|
+|getTempId|array|获取模版id|
+|getTempList|array|获取公众号绑定的模版列表|
+|delTemp|array|解绑公众号模版|
+|sendMsg|array|发送模版信息|
