@@ -35,6 +35,8 @@ class ActiveReplayConfig
                 throw new ResponseException(202,"ActiveReplayConfig {$activeName} replays missing");
             if(!isset($replay['finish']))
                 throw new ResponseException(203,"ActiveReplayConfig {$activeName} finish missing");
+            if(!isset($replay['quit']))
+                throw new ResponseException(203,"ActiveReplayConfig {$activeName} quit missing");
             $this->replayConfig[$activeName] = new ActiveConfigObj($replay);
         }
     }
@@ -80,5 +82,15 @@ class ActiveReplayConfig
     public function getFinish($activeName)
     {
         return isset($this->replayConfig[$activeName])?$this->replayConfig[$activeName]->getFinish():false;
+    }
+
+    public function isQuit($activeName,$keyword)
+    {
+        return isset($this->replayConfig[$activeName])?$this->replayConfig[$activeName]->isQuit($keyword):false;
+    }
+
+    public function getQuit($activeName)
+    {
+        return isset($this->replayConfig[$activeName])?$this->replayConfig[$activeName]->getQuit():false;
     }
 }

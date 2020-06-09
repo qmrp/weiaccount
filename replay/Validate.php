@@ -17,7 +17,9 @@ class Validate
     {
         if($weixin->msgType!='text')
             return false;
-        if(!is_int((int)$weixin->content))
+        if(!is_numeric($weixin->content))
+            return false;
+        if(is_bool(strpos($weixin->content,".")))
             return false;
         if(isset($arg[0])){
             if($weixin->content<$arg[0])
@@ -52,7 +54,7 @@ class Validate
     {
         if($weixin->msgType!='text')
             return false;
-        if(!is_float((float)$weixin->content))
+        if(!is_numeric($weixin->content))
             return false;
         if(isset($arg[0])){
             if($weixin->content<$arg[0])

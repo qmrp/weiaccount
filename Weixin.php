@@ -421,7 +421,15 @@ class Weixin extends Component
                 $activeName = $active['activeName'];
                 $step = $active['step'];
                 $steps = $this->activeReplayConfig->getSteps($activeName);
-
+                if($this->msgType=='text'&&$this->activeReplayConfig->isQuit($activeName,$this->content)){
+                    $this->quitAcitve();
+                    $quit = $this->activeReplayConfig->getQuit($activeName);
+                    if(isset($quit['quitMsg'])){
+                        return $this->template->text(['content'=>$quit['quitMsg']]);
+                    }else{
+                        return $this->template->text(['content'=>"exit success"]);
+                    }
+                }
                 $activeReplay = $this->activeReplayConfig->getReplay($activeName,$step);
                 $format = $this->activeReplayConfig->getFormat($activeName,$step);
                 if($format['validate']=='sys'){     //系统自带校验方法

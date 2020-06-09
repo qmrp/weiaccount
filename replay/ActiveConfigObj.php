@@ -34,6 +34,8 @@ class ActiveConfigObj
      */
     public $finish = ['qmrp\weiaccount\Callbackfun','execute'];
 
+    public $quit = ["keywords"=>['退出','tx','quit','exit'],"quitMsg"=>"退出成功"];
+
     public $message = "format validate error";
 
     public function __construct(array $config)
@@ -41,6 +43,7 @@ class ActiveConfigObj
         if(count($config['replays'])!=count($config['formats']))
             throw new ResponseException(104,"ActiveConfigObj replays length not eq formats");
         $this->setFinish($config['finish']);
+        $this->setQuit($config['quit']);
         $this->setFormats($config['formats']);
         $this->setReplays($config['replays']);
         $this->setSteps(count($config['replays']));
@@ -165,4 +168,27 @@ class ActiveConfigObj
         return $this->finish;
     }
 
+    /**
+     * @param array $quite
+     */
+    public function setQuit($quit)
+    {
+        if(!empty($quit)) {
+            isset($quit['keywords'])&&$this->quit['keywords'] = $quit['keywords'];
+            isset($quit['quitMsg'])&&$this->quit['quitMsg'] = $quit['quitMsg'];
+        }
+    }
+
+    /**
+     * @return array
+     */
+    public function getQuit()
+    {
+        return $this->quit;
+    }
+
+    public function isQuit($keyword)
+    {
+        return in_array($keyword,$this->quit['keywords']);
+    }
 }
